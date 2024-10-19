@@ -1,0 +1,56 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - development
+      - staging
+      - production
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '14' # Change as needed
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run tests
+        run: npm test # Replace with your testing command
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/development' || github.ref == 'refs/heads/staging' || github.ref == 'refs/heads/production'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      
+      - name: Deploy to AWS
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: 'us-east-1' # Change as needed
+        run: |
+          # Define the environment based on the branch
+          if [ "${{ github.ref }}" == "refs/heads/development" ]; then
+            ENVIRONMENT="dev"
+          elif [ "${{ github.ref }}" == "refs/heads/staging" ]; then
+            ENVIRONMENT="staging"
+          elif [ "${{ github.ref }}" == "refs/heads/production" ]; then
+            ENVIRONMENT="prod"
+          fi
+
+          # Deploy using AWS CLI or a script
+          aws deploy create-deployment \
+            --application-name OpenSupports \
+            --deployment-group-name ${ENVIRONMENT}-deployment-group \
+            --s3-location bucket=my-bucket,key=my-app-${ENVIRONMENT}.zip,bundleType=zip \
+            --file-exists-behavior OVERWRITE
